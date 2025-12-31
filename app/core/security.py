@@ -68,3 +68,16 @@ def get_current_user(
         raise credentials_exception
     
     return user
+
+def get_current_admin_user(
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(SessionLocal)
+):
+    user = get_current_user(token, db)
+
+    if user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: privilégios de administrador são necessários",
+        )
+    return user

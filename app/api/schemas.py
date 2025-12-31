@@ -1,30 +1,42 @@
 import re
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, validator, Field
+from typing import Annotated
+from enum import Enum
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr = Field(..., example="admin@empresa.com")
+    password: str = Field(..., example="senha123")
 
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class UserRole(str, Enum):
+    ADMIN = "ADMIN"
+    MANAGER = "MANAGER"
+    USER = "USER"
+
 class UserCreate(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
+    name: str = Field(..., example="João Silva")
+    email: EmailStr = Field(..., example="joao@empresa.com")
+    password: str = Field(..., example="senha123")
+    role: Annotated[UserRole, Field(default=UserRole.USER, description="Role do usuário")]
+
+    model_config = {"from_attributes": True}
 
 class UserResponse(BaseModel):
     id: int
-    email: EmailStr
     name: str
+    email: EmailStr
+    role: UserRole
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class CompanyCreate(BaseModel):
-    name: str
-    document: str
+    name: str = Field(..., example="Empresa X")
+    document: str = Field(..., example="12.345.678/0001-90")
+
+    model_config = {"from_attributes": True}
 
     @validator("document")
     def validate_document(cls, v):
@@ -37,3 +49,5 @@ class CompanyCreate(BaseModel):
 class SignupRequest(BaseModel):
     company: CompanyCreate
     user: UserCreate
+
+    model_config = {"from_attributes": True}
