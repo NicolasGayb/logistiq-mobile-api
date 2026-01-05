@@ -5,7 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app.api.models import User
+from app.api.schemas import UserRole
 from app.core.config import settings, SessionLocal
+from app.core.database import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -30,13 +32,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
         algorithm=settings.algorithm,
     )
     return token
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def get_current_user(
         token: str = Depends(oauth2_scheme),
@@ -71,7 +66,7 @@ def get_current_user(
 
 def get_current_admin_user(
         token: str = Depends(oauth2_scheme),
-        db: Session = Depends(SessionLocal)
+        db: Session = Depends(get_db)
 ):
     user = get_current_user(token, db)
 

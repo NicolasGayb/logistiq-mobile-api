@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 from pydantic import BaseModel, EmailStr, validator, Field
 from typing import Annotated
@@ -20,9 +21,7 @@ class UserCreate(BaseModel):
     name: str = Field(..., example="João Silva")
     email: EmailStr = Field(..., example="joao@empresa.com")
     password: str = Field(..., example="senha123")
-    role: Annotated[UserRole, Field(default=UserRole.USER, description="Role do usuário")]
-
-    model_config = {"from_attributes": True}
+    role: UserRole = Field(default=UserRole.USER, description="Role do usuário")
 
 class UserResponse(BaseModel):
     id: int
@@ -36,8 +35,6 @@ class CompanyCreate(BaseModel):
     name: str = Field(..., example="Empresa X")
     document: str = Field(..., example="12.345.678/0001-90")
 
-    model_config = {"from_attributes": True}
-
     @validator("document")
     def validate_document(cls, v):
         # Remove tudo que não for número
@@ -49,5 +46,16 @@ class CompanyCreate(BaseModel):
 class SignupRequest(BaseModel):
     company: CompanyCreate
     user: UserCreate
+
+    model_config = {"from_attributes": True}
+
+class UserMeResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: UserRole
+    company_id: int
+    is_active: bool
+    created_at: datetime
 
     model_config = {"from_attributes": True}

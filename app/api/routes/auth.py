@@ -1,4 +1,5 @@
 import logging
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -106,17 +107,23 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Erro ao criar empresa ou usuário")
 
 
-@router.post("/login", description="Autentica o usuário e retorna um token JWT com informações multi-tenant", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@router.post(
+        "/login", 
+        description="Autentica o usuário e retorna um token JWT com informações multi-tenant", 
+        response_model=LoginResponse
+    )
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(get_db)):
     """
     Login multi-tenant: autentica o usuário e retorna um token JWT com user_id, company_id e role.
     """
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = db.query(User).filter(User.email == form_data.username).first()
 
     if not user:
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
-    if not verify_password(payload.password, user.password_hash):
+    if not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     # Gera o token de acesso com informações multi-tenant
@@ -124,8 +131,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         data={
             "sub": user.email,
             "user_id": user.id,
-            "company_id": user.company_id,
-            "role": user.role
+            "role": user.role,
+            "company_id": (
+                None if user.role == UserRole.SUPER_ADMIN else user.company_id
+            )
         }
     )
 

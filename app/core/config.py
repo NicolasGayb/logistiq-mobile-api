@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     db_name: str
     jwt_secret_key: str
 
+    # Configuração Super_admin Alembic
+    super_admin_email: str | None = None
+    super_admin_password: str | None = None
+
     # Configuração Pydantic V2
     model_config = SettingsConfigDict(
         env_file=".env",

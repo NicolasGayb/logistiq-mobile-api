@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Enum, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from app.api.schemas import UserRole
 from app.core.config import Base
 
 class Company(Base):
@@ -22,8 +23,8 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False, default="USER") # Roles: ADMIN | MANAGER | USER
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.USER) # Roles: SUPER_ADMIN | ADMIN | MANAGER | USER
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

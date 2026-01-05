@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.api.schemas import UserCreate, UserResponse, UserRole
-from app.core.security import get_current_admin_user, hash_password
+from app.api.schemas import UserCreate, UserMeResponse, UserResponse, UserRole
+from app.core.security import get_current_admin_user, get_current_user, hash_password
 from app.core.config import SessionLocal
 from app.api.models import User
+from app.core.database import get_db
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -18,17 +19,14 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
         )
 
 def create_user(
-    name: str = Form(..., description="Nome do usuário", example="João Silva"),
-    email: str = Form(..., description="Email do usuário", example="joao.silva@example.com"),
-    password: str = Form(..., description="Senha do usuário", example="senha123"),
-    role: UserRole = Form(UserRole.USER, description="Papel do usuário (USER ou MANAGER)"),
-    current_admin = Depends(get_current_admin_user),
-    db: Session = Depends(SessionLocal)
+    user_create: UserCreate,
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
 ):
     """
     Cria um novo usuário. Apenas administradores podem acessar este endpoint.
     """
-    # Verifica se o papel do usuário é válido
+    # Não permite criar usuários com papel de ADMIN
     if user_create.role == UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Não é permitido criar usuários com papel de administrador")
 
@@ -41,7 +39,7 @@ def create_user(
     user = User(
         name=user_create.name,
         email=user_create.email,
-        hashed_password=hash_password(user_create.password),
+        password_hash=hash_password(user_create.password),
         role=user_create.role,
         company_id=current_admin.company_id # Associa ao mesmo ID da empresa do admin
     )
@@ -49,3 +47,16 @@ def create_user(
     db.commit()
     db.refresh(user)
     return user
+
+@router.get(
+        "/me",
+        response_model=UserMeResponse,
+        description="Retorna os detalhes do usuário autenticado"
+)
+def get_me(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna os detalhes do usuário autenticado.
+    """
+    return current_user

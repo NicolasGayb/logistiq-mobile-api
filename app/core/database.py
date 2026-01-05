@@ -1,5 +1,17 @@
-from app.core.config import SessionLocal
-from sqlalchemy.orm import Session
+from app.core.config import DATABASE_URL, SessionLocal
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
 
 def get_db():
     db = SessionLocal()
