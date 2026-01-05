@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
-from jose import jwt, JWTError, ExpiredSignatureError
+from jose import jwt, JWTError
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app.api.models import User
-from app.api.schemas import UserRole
-from app.core.config import settings, SessionLocal
+from app.core.config import settings
 from app.core.database import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -34,8 +33,8 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     return token
 
 def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,14 +48,12 @@ def get_current_user(
             settings.jwt_secret_key,
             algorithms=[settings.algorithm],
         )
-        user_id: int | None = payload.get("user_id")
-
+        user_id = int(payload.get("sub"))  # <<< aqui
         if user_id is None:
             raise credentials_exception
-        
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:

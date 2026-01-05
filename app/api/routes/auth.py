@@ -1,33 +1,22 @@
+from datetime import timedelta
 import logging
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
+import jwt
 from sqlalchemy.exc import IntegrityError
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from app.api.schemas import LoginRequest, LoginResponse, SignupRequest, UserResponse, UserCreate, LoginResponse
+from app.api.schemas import ForgotPasswordRequest, LoginResponse, SignupRequest, LoginResponse, PasswordChangeRequest, ResetPasswordRequest
+from app.core.dependencies import authenticate_user
 from app.core.security import create_access_token, get_current_user, hash_password, verify_password
-from app.core.config import SessionLocal
 from app.core.database import get_db
 from app.api.models import User, Company
 
-router = APIRouter(prefix="/api", tags=["API"])
+router = APIRouter(prefix="/api", tags=["Auth"])
 
 # Configura logger
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-@router.get("/profile", description="Retorna o perfil do usuário autenticado", response_model=UserResponse)
-def read_profile(current_user: User = Depends(get_current_user)):
-    """
-    Retorna o perfil do usuário autenticado.
-    """
-    return {
-        "mensagem": "Você está autenticado",
-        "user": {
-            "id": current_user.id,
-            "email": current_user.email,
-            "name": current_user.name
-        }
-    }
 
 @router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=LoginResponse)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
@@ -106,7 +95,6 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         logger.error(f"Erro ao criar empresa ou usuário: {e}")
         raise HTTPException(status_code=500, detail="Erro ao criar empresa ou usuário")
 
-
 @router.post(
         "/login", 
         description="Autentica o usuário e retorna um token JWT com informações multi-tenant", 
@@ -118,9 +106,9 @@ def login(
     """
     Login multi-tenant: autentica o usuário e retorna um token JWT com user_id, company_id e role.
     """
-    user = db.query(User).filter(User.email == form_data.username).first()
+    user = authenticate_user(db, form_data.username, form_data.password)
 
-    if not user:
+    if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     if not verify_password(form_data.password, user.password_hash):
@@ -128,18 +116,107 @@ def login(
 
     # Gera o token de acesso com informações multi-tenant
     access_token = create_access_token(
-        data={
-            "sub": user.email,
-            "user_id": user.id,
-            "role": user.role,
-            "company_id": (
-                None if user.role == UserRole.SUPER_ADMIN else user.company_id
-            )
-        }
+        data={"sub": str(user.id), "role": user.role.name, "company_id": user.company_id}
     )
 
-    return {"access_token": access_token, "token_type": "bearer"} 
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "company_id": user.company_id,
+            "is_active": user.is_active
+        }
+    }
 
 @router.post("/logout", description="Realiza o logout do usuário")
 def logout():
     return {"message": "Logout bem-sucedido"}
+
+@router.put("/users/change-password", description="Permite que o usuário autenticado altere sua senha")
+def change_password(
+    request: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permite que o usuário autenticado altere sua senha.
+    """
+    # Verifica se a senha atual está correta
+    if not verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha atual incorreta"
+        )
+    
+    # Atualiza a senha do usuário
+    current_user.password_hash = hash_password(request.new_password)
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+
+    return {f"Senha alterada com sucesso para o usuário {current_user.email}."}
+
+@router.post("/users/forgot-password", description="Inicia o processo de recuperação de senha para o usuário")
+def forgot_password(
+    request: ForgotPasswordRequest, 
+    db: Session = Depends(get_db)
+):
+    """
+    Inicia o processo de recuperação de senha para o usuário.
+    """
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        return {"message": "Se o email estiver cadastrado, você receberá instruções para recuperação de senha."}
+    
+    # Gera um token temporário (expira em 15 minutos)
+    reset_token = create_access_token(
+        data={"sub": str(user.id)}, 
+        expires_delta=timedelta(minutes=15)
+    )
+
+    # Cria o link de redefinição de senha
+    reset_link = f"http://localhost:3000/reset-password?token={reset_token}"
+
+    # Envia email com instruções de recuperação
+    send_email(
+        to=user.email,
+        subject="Recuperação de Senha",
+        body=f"Use o seguinte token para redefinir sua senha: {reset_token}. Este token expira em 15 minutos."
+    )
+
+    return {"message": "Se o email estiver cadastrado, você receberá instruções para recuperação de senha."}
+
+@router.post("/users/reset-password", description="Redefine a senha usando token")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Redefine a senha do usuário usando o token enviado por email.
+    """
+    # Valida o token e obtém o user_id
+    try:
+        payload = jwt.decode(
+            request.token,
+            settings.jwt_secret_key,
+            algorithms=[settings.algorithm]
+        )
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    
+    # Busca o usuário no banco de dados
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Atualiza a senha
+    user.password_hash = hash_password(request.new_password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    return {"message": "Senha redefinida com sucesso"}

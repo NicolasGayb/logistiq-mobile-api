@@ -60,3 +60,22 @@ def get_me(
     Retorna os detalhes do usuário autenticado.
     """
     return current_user
+
+@router.get("/all_users", description="Retorna todos os usuários que o usuário pode visualizar", response_model=list[UserResponse])
+def get_users_for_current_user(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna todos os usuários que o usuário autenticado pode visualizar.
+    SUPER_ADMIN vê todos os usuários.
+    ADMIN vê usuários da sua empresa.
+    MANAGER e USER não têm permissão para ver outros usuários.
+    """
+    if current_user.role == UserRole.SUPER_ADMIN:
+        users = db.query(User).all()
+    elif current_user.role == UserRole.ADMIN:
+        users = db.query(User).filter(User.company_id == current_user.company_id).all()
+    else:
+        raise HTTPException(status_code=403, detail="Acesso negado: permissão insuficiente para visualizar outros usuários")
+    return users

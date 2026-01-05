@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routes import auth, users
+from app.api.routes import auth, users, companies, products, categories
 from app.core.config import engine, Base
 
 Base.metadata.create_all(bind=engine)
@@ -12,6 +12,9 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(companies.router)
+app.include_router(products.router)
+app.include_router(categories.router)
 
 @app.get("/api/health", tags=["Health"])
 def health_check():

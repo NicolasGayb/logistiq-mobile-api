@@ -8,28 +8,31 @@ class LoginRequest(BaseModel):
     email: EmailStr = Field(..., example="admin@empresa.com")
     password: str = Field(..., example="senha123")
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
 class UserRole(str, Enum):
+    SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
     MANAGER = "MANAGER"
     USER = "USER"
-
-class UserCreate(BaseModel):
-    name: str = Field(..., example="João Silva")
-    email: EmailStr = Field(..., example="joao@empresa.com")
-    password: str = Field(..., example="senha123")
-    role: UserRole = Field(default=UserRole.USER, description="Role do usuário")
 
 class UserResponse(BaseModel):
     id: int
     name: str
     email: EmailStr
     role: UserRole
+    company_id: Annotated[int | None, Field(example=1)]
 
     model_config = {"from_attributes": True}
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class UserCreate(BaseModel):
+    name: str = Field(..., example="João Silva")
+    email: EmailStr = Field(..., example="joao@empresa.com")
+    password: str = Field(..., example="senha123")
+    role: UserRole = Field(default=UserRole.USER, description="Role do usuário")
 
 class CompanyCreate(BaseModel):
     name: str = Field(..., example="Empresa X")
@@ -59,3 +62,54 @@ class UserMeResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class CompanyResponse(BaseModel):
+    id: int
+    name: str
+    document: str
+    plan: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class ProductCreate(BaseModel):
+    name: str
+    description: str | None
+    sku: str
+    price: float
+    is_active: bool = True
+    category_id: int
+
+class ProductResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    price: float
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class CategoryCreate(BaseModel):
+    name: str
+    description: str | None
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=6, example="senhaAtual123")
+    new_password: str = Field(..., min_length=6, example="senhaNova456")
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6, example="senhaNova456")
