@@ -3,17 +3,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from urllib.parse import quote_plus
+import os
 
 class Settings(BaseSettings):
     app_name: str = "Logistiq Mobile API"
     secret_key: str
     algorithm: str
     access_token_expire_minutes: int
-    db_user: str
-    db_password: str
-    db_host: str
-    db_port: str
-    db_name: str
     jwt_secret_key: str
 
     # Configuração Super_admin Alembic
@@ -28,12 +24,22 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Escapar credenciais e nome do banco para evitar erros de encoding
-db_user = quote_plus(settings.db_user)
-password = quote_plus(settings.db_password)
-db_name = quote_plus(settings.db_name)
+# --------------------------
+# Configuração do banco
+# --------------------------
 
-DATABASE_URL = f"postgresql+psycopg://{db_user}:{password}@{settings.db_host}:{settings.db_port}/{db_name}?client_encoding=UTF8"
+# Se existir DATABASE_URL no ambiente (Heroku), usa ela
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Se não existir, monta local a partir do .env
+if not DATABASE_URL:
+    db_user = quote_plus(settings.db_user)
+    db_password = quote_plus(settings.db_password)
+    db_name = quote_plus(settings.db_name)
+    db_host = settings.db_host
+    db_port = settings.db_port
+
+    DATABASE_URL = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?client_encoding=UTF8"
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
