@@ -148,16 +148,20 @@ def login(
     user = authenticate_user(db, form_data.username, form_data.password)
 
     if not user or not user.is_active:
+        logger.warning(f"⚠️ [LOGIN] Falha na autenticação para o email: {form_data.username}")
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     if not verify_password(form_data.password, user.password_hash):
+        logger.warning(f"⚠️ [LOGIN] Senha inválida para o email: {form_data.username}")
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     # Gera o token de acesso com informações multi-tenant
+    logger.warning(f"🔐 [LOGIN] Gerando token para o usuário: {user.email}")
     access_token = create_access_token(
         data={"sub": str(user.id), "role": user.role.name, "company_id": user.company_id}
     )
 
+    logger.info(f"📤 [LOGIN] Login bem-sucedido para o usuário: {user.email}")
     return {
         "access_token": access_token, 
         "token_type": "bearer", 
