@@ -73,7 +73,13 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         logger.info(f"Nova empresa criada: {new_company.name} (ID: {new_company.id})")
         logger.info(f"Novo usuário administrador criado: {new_user.email} (ID: {new_user.id})")
 
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {
+            "id": str(new_user.id),
+            "name": new_user.name,
+            "email": new_user.email,
+            "access_token": access_token, 
+            "token_type": "bearer"
+        }
     
     except IntegrityError as e:
         db.rollback()
