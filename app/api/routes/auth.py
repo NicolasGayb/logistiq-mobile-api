@@ -16,28 +16,42 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 
 # Configura logger
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 @router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=LoginResponse)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     """ 
     Cria uma nova empresa e um usuário administrador associado.
     """
+    logger.info("📩 [SIGNUP] Requisição recebida")
+
+    logger.info(
+        f"📦 [SIGNUP] Payload recebido | "
+        f"company={{name={payload.company.name}, document={payload.company.document}}} | "
+        f"user={{name={payload.user.name}, email={payload.user.email}}}"
+    )
+
     company_data = payload.company
     user_data = payload.user
 
     # Verifica se os dados da empresa e do usuário foram fornecidos
     if not company_data or not user_data:
+        logger.warning("⚠️ [SIGNUP] Dados de empresa ou usuário não fornecidos")
         raise HTTPException(status_code=400, detail="Dados de empresa e do usuário são obrigatórios")
     
     # Verifica se o email já está em uso
     existing_user = db.query(User).filter(User.email == user_data.email).first()
+    logger.warning(f"⚠️ [SIGNUP] Email já em uso: {user_data.email}")
     if existing_user:
         raise HTTPException(status_code=400, detail="O email informado já está em uso por outro usuário")
     
     # Verifica se a empresa já existe
     existing_company = db.query(Company).filter(Company.document == company_data.document).first()
     if existing_company:
+        logger.warning(f"⚠️ [SIGNUP] Documento/CNPJ da empresa já cadastrado: {company_data.document}")
         raise HTTPException(status_code=400, detail="Documento/CNPJ da empresa já está cadastrado")
     
     try:
@@ -46,8 +60,11 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             document=company_data.document,
             plan="Basic"  # Plano padrão
         )
+        logger.info("🏗️ [SIGNUP] Criando empresa")
         db.add(new_company)
         db.flush() # Para obter o ID da empresa recém-criada
+
+        logger.info(f"🏢 [SIGNUP] Empresa criada | id={new_company.id}")
 
         new_user = User(
             name=user_data.name,
@@ -56,9 +73,18 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
             role="ADMIN",
             company_id=new_company.id
         )
+
+        logger.info("👤 [SIGNUP] Criando usuário ADMIN")
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+
+        logger.info(f"✅ [SIGNUP] Usuário criado | id={new_user.id}")
+
+        logger.info(
+        f"🔐 [SIGNUP] Gerando token | "
+        f"user_id={new_user.id} | company_id={new_company.id} | role={new_user.role}"
+        )
 
         # Gera o token de acesso para o novo usuário
         access_token = create_access_token(
@@ -68,6 +94,9 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
                 "company_id": new_company.id,
                 "role": new_user.role
             }
+        )
+        logger.info(
+       f"📤 [SIGNUP] Resposta enviada com sucesso | user_id={new_user.id}"
         )
 
         logger.info(f"Nova empresa criada: {new_company.name} (ID: {new_company.id})")
