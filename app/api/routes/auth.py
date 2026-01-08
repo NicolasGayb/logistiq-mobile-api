@@ -6,7 +6,7 @@ import jwt
 from sqlalchemy.exc import IntegrityError
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from app.api.schemas import ForgotPasswordRequest, LoginResponse, SignupRequest, LoginResponse, PasswordChangeRequest, ResetPasswordRequest
+from app.api.schemas import ForgotPasswordRequest, LoginResponse, SignupRequest, LoginResponse, PasswordChangeRequest, ResetPasswordRequest, SignupResponse
 from app.core.dependencies import authenticate_user
 from app.core.security import create_access_token, get_current_user, hash_password, verify_password
 from app.core.database import get_db
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-@router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=LoginResponse)
+@router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=SignupResponse)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     """ 
     Cria uma nova empresa e um usuário administrador associado.

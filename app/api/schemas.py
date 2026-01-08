@@ -52,6 +52,13 @@ class SignupRequest(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class SignupResponse(BaseModel):
+    id: str
+    name: str
+    email: EmailStr
+    access_token: str
+    token_type: str = "bearer"
+
 class UserMeResponse(BaseModel):
     id: int
     name: str
