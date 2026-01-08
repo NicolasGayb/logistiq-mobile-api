@@ -145,6 +145,7 @@ def login(
     """
     Login multi-tenant: autentica o usuário e retorna um token JWT com user_id, company_id e role.
     """
+    logger.info(f"📩 [LOGIN] Requisição de login recebida para o email: {form_data.username}")
     user = authenticate_user(db, form_data.username, form_data.password)
 
     if not user or not user.is_active:
@@ -156,7 +157,7 @@ def login(
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     # Gera o token de acesso com informações multi-tenant
-    logger.warning(f"🔐 [LOGIN] Gerando token para o usuário: {user.email}")
+    logger.info(f"🔐 [LOGIN] Gerando token para o usuário: {user.email}")
     access_token = create_access_token(
         data={"sub": str(user.id), "role": user.role.name, "company_id": user.company_id}
     )
