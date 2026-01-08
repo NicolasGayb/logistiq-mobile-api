@@ -37,11 +37,15 @@ settings = Settings()
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# Se estiver no Heroku, ajustar o prefixo
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+
+# Se não tiver DATABASE_URL, monta local a partir dos campos db_
 if not DATABASE_URL:
-    # Monta a URL a partir dos campos db_ se não estiver no Heroku
     if not all([settings.db_user, settings.db_password, settings.db_host, settings.db_port, settings.db_name]):
         raise Exception("Faltam campos do banco para conexão local ou DATABASE_URL no ambiente.")
-    
+
     db_user = quote_plus(settings.db_user)
     db_password = quote_plus(settings.db_password)
     db_name = quote_plus(settings.db_name)
