@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-@router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=SignupResponse)
+@router.post("/signup", description="Cria uma nova empresa e um usuário administrador associado", response_model=LoginResponse)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     """ 
     Cria uma nova empresa e um usuário administrador associado.
@@ -74,11 +74,15 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         logger.info(f"Novo usuário administrador criado: {new_user.email} (ID: {new_user.id})")
 
         return {
-            "id": str(new_user.id),
-            "name": new_user.name,
-            "email": new_user.email,
             "access_token": access_token, 
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "user": {
+                "id": new_user.id,
+                "name": new_user.name,
+                "email": new_user.email,
+                "role": new_user.role,
+                "company_id": new_user.company_id
+            }
         }
     
     except IntegrityError as e:
